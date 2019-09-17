@@ -1,0 +1,75 @@
+// Copyright (c) 2019 Timo Savola. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+namespace flat;
+
+enum Unit: ubyte {
+	Px,
+	Dp,
+	Sp,
+}
+
+enum Alignment: ubyte {
+	Start,
+	End,
+	Middle,
+	Baseline,
+}
+
+struct Value {
+	v: float32;
+	u: Unit;
+}
+
+struct ColorRGBA {
+	r: ubyte;
+	g: ubyte;
+	b: ubyte;
+	a: ubyte;
+}
+
+struct Constraint {
+	min: int;
+	max: int;
+}
+
+struct Constraints {
+	width: Constraint;
+	height: Constraint;
+}
+
+union Op {
+	Macro: OpNode,
+	Color: ColorOp,
+	LabelLayout: LabelLayout,
+}
+
+table OpNode {
+	op: Op;
+	next: OpNode;
+}
+
+table Face {
+	font: string;
+	size: Value;
+}
+
+table ColorOp {
+	color: ColorRGBA;
+}
+
+table Label {
+	face: Face;
+	material: OpNode;
+	alignment: Alignment;
+	text: string;
+	max_lines: int;
+}
+
+table LabelLayout {
+	label: Label;
+	constraints: Constraints;
+}
+
+root_type OpNode;
