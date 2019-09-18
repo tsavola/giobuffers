@@ -26,6 +26,7 @@ func main() {
 }
 
 func loop(w *app.Window, data []byte) error {
+	var u giobuffers.Unmarshaler
 	var cfg app.Config
 	var faces measure.Faces
 	ops := new(ui.Ops)
@@ -38,7 +39,7 @@ func loop(w *app.Window, data []byte) error {
 			cfg = e.Config
 			faces.Reset(&cfg)
 			ops.Reset()
-			if err := giobuffers.Unmarshal(data, ops, &faces); err != nil {
+			if err := u.Unmarshal(data, ops, &faces); err != nil {
 				return err
 			}
 			w.Update(ops)

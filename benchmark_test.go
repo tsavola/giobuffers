@@ -28,10 +28,12 @@ func BenchmarkUnmarshal(b *testing.B) {
 
 	var ops ui.Ops
 
+	var u Unmarshaler
+
 	for i := 0; i < b.N; i++ {
 		ops.Reset()
 
-		if err := Unmarshal(data, &ops, &faces); err != nil {
+		if err := u.Unmarshal(data, &ops, &faces); err != nil {
 			b.Fatal(err)
 		}
 	}

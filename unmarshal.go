@@ -21,8 +21,6 @@ import (
 	"golang.org/x/image/font/sfnt"
 )
 
-type macroMap map[flatbuffers.UOffsetT]ui.MacroOp
-
 var fonts map[string]*sfnt.Font
 
 func init() {
@@ -36,8 +34,20 @@ func init() {
 	}
 }
 
-func Unmarshal(data []byte, ops *ui.Ops, faces *measure.Faces) (err error) {
+type Unmarshaler struct {
+	macros map[flatbuffers.UOffsetT]ui.MacroOp
+}
+
+func (u *Unmarshaler) Unmarshal(data []byte, ops *ui.Ops, faces *measure.Faces) (err error) {
+	if u.macros == nil {
+		u.macros = make(map[flatbuffers.UOffsetT]ui.MacroOp)
+	}
+
 	defer func() {
+		for k := range u.macros {
+			delete(u.macros, k)
+		}
+
 		if x := recover(); x != nil {
 			if e, ok := x.(error); ok {
 				err = e
@@ -52,11 +62,11 @@ func Unmarshal(data []byte, ops *ui.Ops, faces *measure.Faces) (err error) {
 		return
 	}
 
-	unmarshalOps(*buf, ops, faces, make(macroMap))
+	u.unmarshalOps(*buf, ops, faces)
 	return
 }
 
-func unmarshalOps(buf flat.OpNode, ops *ui.Ops, faces *measure.Faces, macros macroMap) {
+func (u *Unmarshaler) unmarshalOps(buf flat.OpNode, ops *ui.Ops, faces *measure.Faces) {
 	table := new(flatbuffers.Table)
 
 	for {
@@ -65,17 +75,17 @@ func unmarshalOps(buf flat.OpNode, ops *ui.Ops, faces *measure.Faces, macros mac
 			case flat.OpMacro:
 				var x flat.OpNode
 				x.Init(table.Bytes, table.Pos)
-				unmarshalMacroOp(x, ops, faces, macros)
+				u.unmarshalMacroOp(x, ops, faces)
 
 			case flat.OpColor:
 				var x flat.ColorOp
 				x.Init(table.Bytes, table.Pos)
-				unmarshalColorOp(x, ops)
+				u.unmarshalColorOp(x, ops)
 
 			case flat.OpLabelLayout:
 				var x flat.LabelLayout
 				x.Init(table.Bytes, table.Pos)
-				unmarshalLabelLayout(x, ops, faces, macros)
+				u.unmarshalLabelLayout(x, ops, faces)
 			}
 		}
 
@@ -85,18 +95,18 @@ func unmarshalOps(buf flat.OpNode, ops *ui.Ops, faces *measure.Faces, macros mac
 	}
 }
 
-func unmarshalMacroOp(buf flat.OpNode, ops *ui.Ops, faces *measure.Faces, macros macroMap) {
+func (u *Unmarshaler) unmarshalMacroOp(buf flat.OpNode, ops *ui.Ops, faces *measure.Faces) {
 	pos := buf.Table().Pos
 
 	var m ui.MacroOp
 	m.Record(ops)
-	unmarshalOps(buf, ops, faces, macros)
+	u.unmarshalOps(buf, ops, faces)
 	m.Stop()
 
-	macros[pos] = m
+	u.macros[pos] = m
 }
 
-func unmarshalColorOp(buf flat.ColorOp, ops *ui.Ops) {
+func (u *Unmarshaler) unmarshalColorOp(buf flat.ColorOp, ops *ui.Ops) {
 	var co paint.ColorOp
 
 	if c := buf.Color(new(flat.ColorRGBA)); c != nil {
@@ -111,7 +121,7 @@ func unmarshalColorOp(buf flat.ColorOp, ops *ui.Ops) {
 	co.Add(ops)
 }
 
-func unmarshalLabelLayout(buf flat.LabelLayout, ops *ui.Ops, faces *measure.Faces, macros macroMap) {
+func (u *Unmarshaler) unmarshalLabelLayout(buf flat.LabelLayout, ops *ui.Ops, faces *measure.Faces) {
 	var cs layout.Constraints
 
 	if bufCS := buf.Constraints(new(flat.Constraints)); bufCS != nil {
@@ -152,7 +162,7 @@ func unmarshalLabelLayout(buf flat.LabelLayout, ops *ui.Ops, faces *measure.Face
 
 		if bufM := bufL.Material(new(flat.OpNode)); bufM != nil {
 			pos := bufM.Table().Pos
-			m, found := macros[pos]
+			m, found := u.macros[pos]
 			if !found {
 				panic(fmt.Errorf("material macro not found (%d)", pos))
 			}
