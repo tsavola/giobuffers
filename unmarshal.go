@@ -35,12 +35,18 @@ func init() {
 }
 
 type Unmarshaler struct {
-	macros map[flatbuffers.UOffsetT]ui.MacroOp
+	macros  map[flatbuffers.UOffsetT]ui.MacroOp
+	strings [2]map[string]string // Caches strings between two Unmarshal calls.
+	slot    int                  // Current string map for lookup.
 }
 
 func (u *Unmarshaler) Unmarshal(data []byte, ops *ui.Ops, faces *measure.Faces) (err error) {
 	if u.macros == nil {
 		u.macros = make(map[flatbuffers.UOffsetT]ui.MacroOp)
+		u.strings = [2]map[string]string{
+			make(map[string]string),
+			make(map[string]string),
+		}
 	}
 
 	defer func() {
@@ -63,6 +69,13 @@ func (u *Unmarshaler) Unmarshal(data []byte, ops *ui.Ops, faces *measure.Faces) 
 	}
 
 	u.unmarshalOps(*buf, ops, faces)
+
+	m := u.strings[u.slot&1] // Mask avoids bounds check.
+	for k := range m {
+		delete(m, k)
+	}
+	u.slot = (u.slot + 1) & 1
+
 	return
 }
 
@@ -170,7 +183,17 @@ func (u *Unmarshaler) unmarshalLabelLayout(buf flat.LabelLayout, ops *ui.Ops, fa
 		}
 
 		l.Alignment = text.Alignment(bufL.Alignment())
-		l.Text = string(bufL.Text())
+
+		// Repeat string(text) so that the map lookup gets optimized.
+		// The redundant index mask avoids bounds check.
+		text := bufL.Text()
+		s, found := u.strings[u.slot&1][string(text)]
+		if !found {
+			s = string(text)
+		}
+		u.strings[(u.slot+1)&1][s] = s // Cache it for next round.
+		l.Text = s
+
 		l.MaxLines = int(bufL.MaxLines())
 
 		l.Layout(ops, cs)
