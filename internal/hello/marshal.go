@@ -12,47 +12,77 @@ import (
 func Marshal() []byte {
 	b := flatbuffers.NewBuilder(0)
 
-	regular := b.CreateString("Go Regular")
+	var opList flatbuffers.UOffsetT
+	addOp := func(opType flat.Op, bufOffset flatbuffers.UOffsetT) {
+		flat.OpNodeStart(b)
+		flat.OpNodeAddOpType(b, opType)
+		flat.OpNodeAddOp(b, bufOffset)
+		flat.OpNodeAddNext(b, opList)
+		opList = flat.OpNodeEnd(b)
+	}
 
-	flat.FaceStart(b)
-	flat.FaceAddFont(b, regular)
-	flat.FaceAddSize(b, flat.CreateValue(b, 72, flat.UnitSp))
-	face := flat.FaceEnd(b)
+	addColorOp := func(color flatbuffers.UOffsetT) {
+		flat.PaintColorOpStart(b)
+		flat.PaintColorOpAddColor(b, color)
+		addOp(flat.OpPaintColor, flat.PaintColorOpEnd(b))
+	}
 
-	message := b.CreateString("Hello, Gio")
+	var f lazyReverse
+	f.add(func() {
+		addColorOp(flat.CreateColorNRGBA(b, 0, 0, 0, 255))
+	})
+	f.add(func() {
+		flat.PaintOpStart(b)
+		addOp(flat.OpPaint, flat.PaintOpEnd(b))
+	})
+	f.add(func() {
+		addColorOp(flat.CreateColorNRGBA(b, 200, 200, 200, 255))
+	})
+	f.add(func() {
+		flat.WidgetLabelStart(b)
+		flat.WidgetLabelAddAlignment(b, flat.TextAlignmentMiddle)
+		label := flat.WidgetLabelEnd(b)
 
-	flat.ColorOpStart(b)
-	flat.ColorOpAddColor(b, flat.CreateColorRGBA(b, 127, 0, 0, 255))
-	maroon := flat.ColorOpEnd(b)
+		flat.TextFontStart(b)
+		flat.TextFontAddStyle(b, flat.TextStyleItalic)
+		flat.TextFontAddWeight(b, 550)
+		font := flat.TextFontEnd(b)
 
-	flat.OpNodeStart(b)
-	flat.OpNodeAddOpType(b, flat.OpColor)
-	flat.OpNodeAddOp(b, maroon)
-	material := flat.OpNodeEnd(b)
+		text := b.CreateString("Hello, Gio")
 
-	flat.LabelStart(b)
-	flat.LabelAddMaterial(b, material)
-	flat.LabelAddFace(b, face)
-	flat.LabelAddAlignment(b, flat.AlignmentMiddle)
-	flat.LabelAddText(b, message)
-	label := flat.LabelEnd(b)
+		flat.WidgetLabelLayoutStart(b)
+		flat.WidgetLabelLayoutAddLabel(b, label)
+		flat.WidgetLabelLayoutAddFont(b, font)
+		flat.WidgetLabelLayoutAddSize(b, flat.CreateUnitValue(b, 16, flat.UnitDp))
+		flat.WidgetLabelLayoutAddText(b, text)
+		addOp(flat.OpWidgetLabel, flat.WidgetLabelLayoutEnd(b))
+	})
+	f.eval()
 
-	flat.LabelLayoutStart(b)
-	flat.LabelLayoutAddLabel(b, label)
-	flat.LabelLayoutAddConstraints(b, flat.CreateConstraints(b, 0, 640, 0, 480))
-	layout := flat.LabelLayoutEnd(b)
-
-	flat.OpNodeStart(b)
-	flat.OpNodeAddOpType(b, flat.OpLabelLayout)
-	flat.OpNodeAddOp(b, layout)
-	ops := flat.OpNodeEnd(b)
-
-	flat.OpNodeStart(b)
-	flat.OpNodeAddNext(b, ops)
-	flat.OpNodeAddOpType(b, flat.OpMacro)
-	flat.OpNodeAddOp(b, material)
-	ops = flat.OpNodeEnd(b)
-
-	b.Finish(ops)
+	b.Finish(opList)
 	return b.FinishedBytes()
+}
+
+type lazyReverse struct {
+	first *funcNode
+}
+
+func (lr *lazyReverse) add(f func()) {
+	lr.first = &funcNode{f, lr.first}
+}
+
+func (lr *lazyReverse) eval() {
+	lr.first.eval()
+}
+
+type funcNode struct {
+	f    func()
+	next *funcNode
+}
+
+func (fn *funcNode) eval() {
+	if fn != nil {
+		fn.f()
+		fn.next.eval()
+	}
 }

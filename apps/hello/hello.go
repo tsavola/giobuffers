@@ -6,10 +6,12 @@ package main
 
 import (
 	"log"
+	"os"
 
-	"gioui.org/ui"
-	"gioui.org/ui/app"
-	"gioui.org/ui/measure"
+	"gioui.org/app"
+	"gioui.org/io/system"
+	"gioui.org/layout"
+	"gioui.org/op"
 	"github.com/tsavola/giobuffers"
 	"github.com/tsavola/giobuffers/internal/hello"
 )
@@ -18,31 +20,29 @@ func main() {
 	data := hello.Marshal()
 	go func() {
 		w := app.NewWindow()
-		if err := loop(w, data); err != nil {
+		err := run(w, data)
+		if err != nil {
 			log.Fatal(err)
 		}
+		os.Exit(0)
 	}()
 	app.Main()
 }
 
-func loop(w *app.Window, data []byte) error {
+func run(w *app.Window, data []byte) error {
 	var u giobuffers.Unmarshaler
-	var cfg app.Config
-	var faces measure.Faces
-	ops := new(ui.Ops)
+	var ops op.Ops
 	for {
 		e := <-w.Events()
 		switch e := e.(type) {
-		case app.DestroyEvent:
+		case system.DestroyEvent:
 			return e.Err
-		case app.UpdateEvent:
-			cfg = e.Config
-			faces.Reset(&cfg)
-			ops.Reset()
-			if err := u.Unmarshal(data, ops, &faces); err != nil {
+		case system.FrameEvent:
+			gtx := layout.NewContext(&ops, e)
+			if err := u.Unmarshal(gtx, data); err != nil {
 				return err
 			}
-			w.Update(ops)
+			e.Frame(gtx.Ops)
 		}
 	}
 }

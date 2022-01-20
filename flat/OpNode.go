@@ -26,16 +26,16 @@ func (rcv *OpNode) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-func (rcv *OpNode) OpType() byte {
+func (rcv *OpNode) OpType() Op {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
-		return rcv._tab.GetByte(o + rcv._tab.Pos)
+		return Op(rcv._tab.GetByte(o + rcv._tab.Pos))
 	}
 	return 0
 }
 
-func (rcv *OpNode) MutateOpType(n byte) bool {
-	return rcv._tab.MutateByteSlot(4, n)
+func (rcv *OpNode) MutateOpType(n Op) bool {
+	return rcv._tab.MutateByteSlot(4, byte(n))
 }
 
 func (rcv *OpNode) Op(obj *flatbuffers.Table) bool {
@@ -63,8 +63,8 @@ func (rcv *OpNode) Next(obj *OpNode) *OpNode {
 func OpNodeStart(builder *flatbuffers.Builder) {
 	builder.StartObject(3)
 }
-func OpNodeAddOpType(builder *flatbuffers.Builder, opType byte) {
-	builder.PrependByteSlot(0, opType, 0)
+func OpNodeAddOpType(builder *flatbuffers.Builder, opType Op) {
+	builder.PrependByteSlot(0, byte(opType), 0)
 }
 func OpNodeAddOp(builder *flatbuffers.Builder, op flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(1, flatbuffers.UOffsetT(op), 0)

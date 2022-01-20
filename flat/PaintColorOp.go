@@ -6,32 +6,32 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-type ColorOp struct {
+type PaintColorOp struct {
 	_tab flatbuffers.Table
 }
 
-func GetRootAsColorOp(buf []byte, offset flatbuffers.UOffsetT) *ColorOp {
+func GetRootAsPaintColorOp(buf []byte, offset flatbuffers.UOffsetT) *PaintColorOp {
 	n := flatbuffers.GetUOffsetT(buf[offset:])
-	x := &ColorOp{}
+	x := &PaintColorOp{}
 	x.Init(buf, n+offset)
 	return x
 }
 
-func (rcv *ColorOp) Init(buf []byte, i flatbuffers.UOffsetT) {
+func (rcv *PaintColorOp) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i
 }
 
-func (rcv *ColorOp) Table() flatbuffers.Table {
+func (rcv *PaintColorOp) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-func (rcv *ColorOp) Color(obj *ColorRGBA) *ColorRGBA {
+func (rcv *PaintColorOp) Color(obj *ColorNRGBA) *ColorNRGBA {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
 		x := o + rcv._tab.Pos
 		if obj == nil {
-			obj = new(ColorRGBA)
+			obj = new(ColorNRGBA)
 		}
 		obj.Init(rcv._tab.Bytes, x)
 		return obj
@@ -39,12 +39,12 @@ func (rcv *ColorOp) Color(obj *ColorRGBA) *ColorRGBA {
 	return nil
 }
 
-func ColorOpStart(builder *flatbuffers.Builder) {
+func PaintColorOpStart(builder *flatbuffers.Builder) {
 	builder.StartObject(1)
 }
-func ColorOpAddColor(builder *flatbuffers.Builder, color flatbuffers.UOffsetT) {
+func PaintColorOpAddColor(builder *flatbuffers.Builder, color flatbuffers.UOffsetT) {
 	builder.PrependStructSlot(0, flatbuffers.UOffsetT(color), 0)
 }
-func ColorOpEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
+func PaintColorOpEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }

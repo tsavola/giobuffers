@@ -6,48 +6,48 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-type ColorRGBA struct {
+type ColorNRGBA struct {
 	_tab flatbuffers.Struct
 }
 
-func (rcv *ColorRGBA) Init(buf []byte, i flatbuffers.UOffsetT) {
+func (rcv *ColorNRGBA) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i
 }
 
-func (rcv *ColorRGBA) Table() flatbuffers.Table {
+func (rcv *ColorNRGBA) Table() flatbuffers.Table {
 	return rcv._tab.Table
 }
 
-func (rcv *ColorRGBA) R() byte {
+func (rcv *ColorNRGBA) R() byte {
 	return rcv._tab.GetByte(rcv._tab.Pos + flatbuffers.UOffsetT(0))
 }
-func (rcv *ColorRGBA) MutateR(n byte) bool {
+func (rcv *ColorNRGBA) MutateR(n byte) bool {
 	return rcv._tab.MutateByte(rcv._tab.Pos+flatbuffers.UOffsetT(0), n)
 }
 
-func (rcv *ColorRGBA) G() byte {
+func (rcv *ColorNRGBA) G() byte {
 	return rcv._tab.GetByte(rcv._tab.Pos + flatbuffers.UOffsetT(1))
 }
-func (rcv *ColorRGBA) MutateG(n byte) bool {
+func (rcv *ColorNRGBA) MutateG(n byte) bool {
 	return rcv._tab.MutateByte(rcv._tab.Pos+flatbuffers.UOffsetT(1), n)
 }
 
-func (rcv *ColorRGBA) B() byte {
+func (rcv *ColorNRGBA) B() byte {
 	return rcv._tab.GetByte(rcv._tab.Pos + flatbuffers.UOffsetT(2))
 }
-func (rcv *ColorRGBA) MutateB(n byte) bool {
+func (rcv *ColorNRGBA) MutateB(n byte) bool {
 	return rcv._tab.MutateByte(rcv._tab.Pos+flatbuffers.UOffsetT(2), n)
 }
 
-func (rcv *ColorRGBA) A() byte {
+func (rcv *ColorNRGBA) A() byte {
 	return rcv._tab.GetByte(rcv._tab.Pos + flatbuffers.UOffsetT(3))
 }
-func (rcv *ColorRGBA) MutateA(n byte) bool {
+func (rcv *ColorNRGBA) MutateA(n byte) bool {
 	return rcv._tab.MutateByte(rcv._tab.Pos+flatbuffers.UOffsetT(3), n)
 }
 
-func CreateColorRGBA(builder *flatbuffers.Builder, r byte, g byte, b byte, a byte) flatbuffers.UOffsetT {
+func CreateColorNRGBA(builder *flatbuffers.Builder, r byte, g byte, b byte, a byte) flatbuffers.UOffsetT {
 	builder.Prep(1, 4)
 	builder.PrependByte(a)
 	builder.PrependByte(b)

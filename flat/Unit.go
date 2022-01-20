@@ -2,7 +2,10 @@
 
 package flat
 
-type Unit = byte
+import "strconv"
+
+type Unit byte
+
 const (
 	UnitPx Unit = 0
 	UnitDp Unit = 1
@@ -10,8 +13,20 @@ const (
 )
 
 var EnumNamesUnit = map[Unit]string{
-	UnitPx:"Px",
-	UnitDp:"Dp",
-	UnitSp:"Sp",
+	UnitPx: "Px",
+	UnitDp: "Dp",
+	UnitSp: "Sp",
 }
 
+var EnumValuesUnit = map[string]Unit{
+	"Px": UnitPx,
+	"Dp": UnitDp,
+	"Sp": UnitSp,
+}
+
+func (v Unit) String() string {
+	if s, ok := EnumNamesUnit[v]; ok {
+		return s
+	}
+	return "Unit(" + strconv.FormatInt(int64(v), 10) + ")"
+}

@@ -6,34 +6,26 @@ package giobuffers
 
 import (
 	"testing"
-	"time"
 
-	"gioui.org/ui"
-	"gioui.org/ui/measure"
+	"gioui.org/layout"
+	"gioui.org/op"
 	"github.com/tsavola/giobuffers/internal/hello"
 )
 
 var data = hello.Marshal()
 
-type config struct{}
-
-func (config) Now() time.Time    { return time.Now() }
-func (config) Px(v ui.Value) int { return int(v.V) }
-
 func BenchmarkUnmarshal(b *testing.B) {
 	b.SetBytes(int64(len(data)))
 
-	var faces measure.Faces
-	faces.Reset(config{})
-
-	var ops ui.Ops
+	var ops op.Ops
 
 	var u Unmarshaler
 
 	for i := 0; i < b.N; i++ {
 		ops.Reset()
+		gtx := layout.Context{Ops: &ops}
 
-		if err := u.Unmarshal(data, &ops, &faces); err != nil {
+		if err := u.Unmarshal(gtx, data); err != nil {
 			b.Fatal(err)
 		}
 	}

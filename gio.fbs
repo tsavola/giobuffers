@@ -2,74 +2,83 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-namespace flat;
+// Package color
 
-enum Unit: ubyte {
-	Px,
-	Dp,
-	Sp,
+struct ColorNRGBA {
+  r:uint8;
+  g:uint8;
+  b:uint8;
+  a:uint8;
 }
 
-enum Alignment: ubyte {
-	Start,
-	End,
-	Middle,
-	Baseline,
+// Package gioui.org/unit
+
+enum Unit:uint8 {
+  Px,
+  Dp,
+  Sp,
 }
 
-struct Value {
-	v: float32;
-	u: Unit;
+struct UnitValue {
+  v:float32;
+  u:Unit;
 }
 
-struct ColorRGBA {
-	r: ubyte;
-	g: ubyte;
-	b: ubyte;
-	a: ubyte;
+// Package gioui.org/text
+
+enum TextAlignment:uint8 {
+  Start,
+  End,
+  Middle,
 }
 
-struct Constraint {
-	min: int;
-	max: int;
+enum TextStyle:int {
+  Regular,
+  Italic,
 }
 
-struct Constraints {
-	width: Constraint;
-	height: Constraint;
+table TextFont {
+  typeface:string;
+  variant:string;
+  style:TextStyle;
+  weight:int;
 }
+
+// Package gioui.org/widget
+
+table WidgetLabel {
+  alignment:TextAlignment;
+  max_lines:int;
+}
+
+table WidgetLabelLayout {
+  label:WidgetLabel;
+  font:TextFont;
+  size:UnitValue;
+  text:string;
+}
+
+// Package gioui.org/op/paint
+
+table PaintColorOp {
+  color:ColorNRGBA;
+}
+
+table PaintOp {
+}
+
+// Package gioui.org/op
 
 union Op {
-	Macro: OpNode,
-	Color: ColorOp,
-	LabelLayout: LabelLayout,
+  Macro:OpNode,
+  PaintColor:PaintColorOp,
+  Paint:PaintOp,
+  WidgetLabel:WidgetLabelLayout,
 }
 
 table OpNode {
-	op: Op;
-	next: OpNode;
-}
-
-table Face {
-	font: string;
-	size: Value;
-}
-
-table ColorOp {
-	color: ColorRGBA;
-}
-
-table Label {
-	face: Face;
-	material: OpNode;
-	alignment: Alignment;
-	text: string;
-	max_lines: int;
-}
-
-table LabelLayout {
-	label: Label;
-	constraints: Constraints;
+  op:Op;
+  next:OpNode;
 }
 
 root_type OpNode;
