@@ -11,6 +11,13 @@ struct ColorNRGBA {
   a:uint8;
 }
 
+// Package gioui.org/f32
+
+struct F32Point {
+  x:float32;
+  y:float32;
+}
+
 // Package gioui.org/unit
 
 enum Unit:uint8 {
@@ -64,6 +71,13 @@ table PaintColorOp {
   color:ColorNRGBA;
 }
 
+table PaintLinearGradientOp {
+  stop1:F32Point;
+  color1:ColorNRGBA;
+  stop2:F32Point;
+  color2:ColorNRGBA;
+}
+
 table PaintOp {
 }
 
@@ -72,6 +86,7 @@ table PaintOp {
 union Op {
   Macro:OpNode,
   PaintColor:PaintColorOp,
+  PaintLinearGradient:PaintLinearGradientOp,
   Paint:PaintOp,
   WidgetLabel:WidgetLabelLayout,
 }

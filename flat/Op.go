@@ -7,27 +7,30 @@ import "strconv"
 type Op byte
 
 const (
-	OpNONE        Op = 0
-	OpMacro       Op = 1
-	OpPaintColor  Op = 2
-	OpPaint       Op = 3
-	OpWidgetLabel Op = 4
+	OpNONE                Op = 0
+	OpMacro               Op = 1
+	OpPaintColor          Op = 2
+	OpPaintLinearGradient Op = 3
+	OpPaint               Op = 4
+	OpWidgetLabel         Op = 5
 )
 
 var EnumNamesOp = map[Op]string{
-	OpNONE:        "NONE",
-	OpMacro:       "Macro",
-	OpPaintColor:  "PaintColor",
-	OpPaint:       "Paint",
-	OpWidgetLabel: "WidgetLabel",
+	OpNONE:                "NONE",
+	OpMacro:               "Macro",
+	OpPaintColor:          "PaintColor",
+	OpPaintLinearGradient: "PaintLinearGradient",
+	OpPaint:               "Paint",
+	OpWidgetLabel:         "WidgetLabel",
 }
 
 var EnumValuesOp = map[string]Op{
-	"NONE":        OpNONE,
-	"Macro":       OpMacro,
-	"PaintColor":  OpPaintColor,
-	"Paint":       OpPaint,
-	"WidgetLabel": OpWidgetLabel,
+	"NONE":                OpNONE,
+	"Macro":               OpMacro,
+	"PaintColor":          OpPaintColor,
+	"PaintLinearGradient": OpPaintLinearGradient,
+	"Paint":               OpPaint,
+	"WidgetLabel":         OpWidgetLabel,
 }
 
 func (v Op) String() string {

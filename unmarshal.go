@@ -7,9 +7,9 @@ package giobuffers
 //go:generate flatc --go --go-namespace flat gio.fbs
 
 import (
-	//"fmt"
 	"image/color"
 
+	"gioui.org/f32"
 	"gioui.org/font/gofont"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -72,22 +72,34 @@ func (u *Unmarshaler) unmarshalOps(gtx layout.Context, buf flat.OpNode) {
 		if buf.Op(table) {
 			switch buf.OpType() {
 			case flat.OpMacro:
-				var x flat.OpNode
-				x.Init(table.Bytes, table.Pos)
-				u.unmarshalMacroOp(gtx, x)
+				var buf flat.OpNode
+				buf.Init(table.Bytes, table.Pos)
+				u.unmarshalMacroOp(gtx, buf)
 
 			case flat.OpPaintColor:
-				var x flat.PaintColorOp
-				x.Init(table.Bytes, table.Pos)
-				u.unmarshalPaintColorOp(gtx, x)
+				var buf flat.PaintColorOp
+				buf.Init(table.Bytes, table.Pos)
+				paint.ColorOp{
+					Color: unmarshalColorNRGBA(buf.Color(new(flat.ColorNRGBA))),
+				}.Add(gtx.Ops)
+
+			case flat.OpPaintLinearGradient:
+				var buf flat.PaintLinearGradientOp
+				buf.Init(table.Bytes, table.Pos)
+				paint.LinearGradientOp{
+					Stop1:  unmarshalF32Point(buf.Stop1(new(flat.F32Point))),
+					Color1: unmarshalColorNRGBA(buf.Color1(new(flat.ColorNRGBA))),
+					Stop2:  unmarshalF32Point(buf.Stop2(new(flat.F32Point))),
+					Color2: unmarshalColorNRGBA(buf.Color2(new(flat.ColorNRGBA))),
+				}.Add(gtx.Ops)
 
 			case flat.OpPaint:
 				paint.PaintOp{}.Add(gtx.Ops)
 
 			case flat.OpWidgetLabel:
-				var x flat.WidgetLabelLayout
-				x.Init(table.Bytes, table.Pos)
-				u.unmarshalWidgetLabelLayout(gtx, x)
+				var buf flat.WidgetLabelLayout
+				buf.Init(table.Bytes, table.Pos)
+				u.unmarshalWidgetLabelLayout(gtx, buf)
 			}
 		}
 
@@ -105,21 +117,6 @@ func (u *Unmarshaler) unmarshalMacroOp(gtx layout.Context, buf flat.OpNode) {
 	m.Stop()
 
 	u.macros[pos] = m
-}
-
-func (u *Unmarshaler) unmarshalPaintColorOp(gtx layout.Context, buf flat.PaintColorOp) {
-	var co paint.ColorOp
-
-	if c := buf.Color(new(flat.ColorNRGBA)); c != nil {
-		co.Color = color.NRGBA{
-			R: c.R(),
-			G: c.G(),
-			B: c.B(),
-			A: c.A(),
-		}
-	}
-
-	co.Add(gtx.Ops)
 }
 
 func (u *Unmarshaler) unmarshalWidgetLabelLayout(gtx layout.Context, buf flat.WidgetLabelLayout) {
@@ -155,5 +152,23 @@ func (u *Unmarshaler) unmarshalString(buf []byte) (s string) {
 		s = string(buf)
 	}
 	u.strings[(u.slot+1)&1][s] = s // Cache it for next round.
+	return
+}
+
+func unmarshalColorNRGBA(buf *flat.ColorNRGBA) (r color.NRGBA) {
+	if buf != nil {
+		r.R = buf.R()
+		r.G = buf.G()
+		r.B = buf.B()
+		r.A = buf.A()
+	}
+	return
+}
+
+func unmarshalF32Point(buf *flat.F32Point) (r f32.Point) {
+	if buf != nil {
+		r.X = buf.X()
+		r.Y = buf.Y()
+	}
 	return
 }

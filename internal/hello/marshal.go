@@ -29,7 +29,12 @@ func Marshal() []byte {
 
 	var f lazyReverse
 	f.add(func() {
-		addColorOp(flat.CreateColorNRGBA(b, 0, 0, 0, 255))
+		flat.PaintLinearGradientOpStart(b)
+		flat.PaintLinearGradientOpAddStop1(b, flat.CreateF32Point(b, 0, 0))
+		flat.PaintLinearGradientOpAddColor1(b, flat.CreateColorNRGBA(b, 16, 32, 48, 255))
+		flat.PaintLinearGradientOpAddStop2(b, flat.CreateF32Point(b, 32, 256))
+		flat.PaintLinearGradientOpAddColor2(b, flat.CreateColorNRGBA(b, 0, 0, 0, 255))
+		addOp(flat.OpPaintLinearGradient, flat.PaintLinearGradientOpEnd(b))
 	})
 	f.add(func() {
 		flat.PaintOpStart(b)
