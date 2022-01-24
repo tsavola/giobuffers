@@ -11,6 +11,33 @@ struct ColorNRGBA {
   a:uint8;
 }
 
+// Package image
+
+struct ImagePoint {
+  x:int;
+  y:int;
+}
+
+struct ImageRectangle {
+  min:ImagePoint;
+  max:ImagePoint;
+}
+
+table ImageDecode {
+  data:[ubyte];
+}
+
+table ImageNRGBA {
+  pix:[uint8];
+  stride:int;
+  rect:ImageRectangle;
+}
+
+union Image {
+  ImageDecode:ImageDecode,
+  ImageNRGBA:ImageNRGBA,
+}
+
 // Package gioui.org/f32
 
 struct F32Point {
@@ -71,6 +98,10 @@ table PaintColorOp {
   color:ColorNRGBA;
 }
 
+table PaintImageOp {
+  src:Image;
+}
+
 table PaintLinearGradientOp {
   stop1:F32Point;
   color1:ColorNRGBA;
@@ -86,6 +117,7 @@ table PaintOp {
 union Op {
   Macro:OpNode,
   PaintColor:PaintColorOp,
+  PaintImage:PaintImageOp,
   PaintLinearGradient:PaintLinearGradientOp,
   Paint:PaintOp,
   WidgetLabel:WidgetLabelLayout,

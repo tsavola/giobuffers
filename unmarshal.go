@@ -7,6 +7,8 @@ package giobuffers
 //go:generate flatc --go --go-namespace flat gio.fbs
 
 import (
+	"bytes"
+	"image"
 	"image/color"
 
 	"gioui.org/f32"
@@ -83,6 +85,11 @@ func (u *Unmarshaler) unmarshalOps(gtx layout.Context, buf flat.OpNode) {
 					Color: unmarshalColorNRGBA(buf.Color(new(flat.ColorNRGBA))),
 				}.Add(gtx.Ops)
 
+			case flat.OpPaintImage:
+				var buf flat.PaintImageOp
+				buf.Init(table.Bytes, table.Pos)
+				u.unmarshalPaintImageOp(gtx, buf)
+
 			case flat.OpPaintLinearGradient:
 				var buf flat.PaintLinearGradientOp
 				buf.Init(table.Bytes, table.Pos)
@@ -117,6 +124,30 @@ func (u *Unmarshaler) unmarshalMacroOp(gtx layout.Context, buf flat.OpNode) {
 	m.Stop()
 
 	u.macros[pos] = m
+}
+
+func (u *Unmarshaler) unmarshalPaintImageOp(gtx layout.Context, buf flat.PaintImageOp) {
+	table := new(flatbuffers.Table)
+
+	if buf.Src(table) {
+		switch buf.SrcType() {
+		case flat.ImageImageDecode:
+			var buf flat.ImageDecode
+			buf.Init(table.Bytes, table.Pos)
+			img, _, err := image.Decode(bytes.NewReader(buf.DataBytes()))
+			check(err)
+			paint.NewImageOp(img).Add(gtx.Ops)
+
+		case flat.ImageImageNRGBA:
+			var buf flat.ImageNRGBA
+			buf.Init(table.Bytes, table.Pos)
+			paint.NewImageOp(&image.NRGBA{
+				Pix:    buf.PixBytes(),
+				Stride: int(buf.Stride()),
+				Rect:   unmarshalImageRectangle(buf.Rect(new(flat.ImageRectangle))),
+			}).Add(gtx.Ops)
+		}
+	}
 }
 
 func (u *Unmarshaler) unmarshalWidgetLabelLayout(gtx layout.Context, buf flat.WidgetLabelLayout) {
@@ -172,3 +203,21 @@ func unmarshalF32Point(buf *flat.F32Point) (r f32.Point) {
 	}
 	return
 }
+
+func unmarshalImagePoint(buf *flat.ImagePoint) (r image.Point) {
+	if buf != nil {
+		r.X = int(buf.X())
+		r.Y = int(buf.Y())
+	}
+	return
+}
+
+func unmarshalImageRectangle(buf *flat.ImageRectangle) (r image.Rectangle) {
+	if buf != nil {
+		r.Min = unmarshalImagePoint(buf.Min(new(flat.ImagePoint)))
+		r.Max = unmarshalImagePoint(buf.Max(new(flat.ImagePoint)))
+	}
+	return
+}
+
+func check(err error) { pan.Check(err) }

@@ -10,15 +10,17 @@ const (
 	OpNONE                Op = 0
 	OpMacro               Op = 1
 	OpPaintColor          Op = 2
-	OpPaintLinearGradient Op = 3
-	OpPaint               Op = 4
-	OpWidgetLabel         Op = 5
+	OpPaintImage          Op = 3
+	OpPaintLinearGradient Op = 4
+	OpPaint               Op = 5
+	OpWidgetLabel         Op = 6
 )
 
 var EnumNamesOp = map[Op]string{
 	OpNONE:                "NONE",
 	OpMacro:               "Macro",
 	OpPaintColor:          "PaintColor",
+	OpPaintImage:          "PaintImage",
 	OpPaintLinearGradient: "PaintLinearGradient",
 	OpPaint:               "Paint",
 	OpWidgetLabel:         "WidgetLabel",
@@ -28,6 +30,7 @@ var EnumValuesOp = map[string]Op{
 	"NONE":                OpNONE,
 	"Macro":               OpMacro,
 	"PaintColor":          OpPaintColor,
+	"PaintImage":          OpPaintImage,
 	"PaintLinearGradient": OpPaintLinearGradient,
 	"Paint":               OpPaint,
 	"WidgetLabel":         OpWidgetLabel,
