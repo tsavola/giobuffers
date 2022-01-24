@@ -47,7 +47,7 @@ func (rcv *OpNode) Op(obj *flatbuffers.Table) bool {
 	return false
 }
 
-func (rcv *OpNode) Next(obj *OpNode) *OpNode {
+func (rcv *OpNode) Previous(obj *OpNode) *OpNode {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
 	if o != 0 {
 		x := rcv._tab.Indirect(o + rcv._tab.Pos)
@@ -69,8 +69,8 @@ func OpNodeAddOpType(builder *flatbuffers.Builder, opType Op) {
 func OpNodeAddOp(builder *flatbuffers.Builder, op flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(1, flatbuffers.UOffsetT(op), 0)
 }
-func OpNodeAddNext(builder *flatbuffers.Builder, next flatbuffers.UOffsetT) {
-	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(next), 0)
+func OpNodeAddPrevious(builder *flatbuffers.Builder, previous flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(previous), 0)
 }
 func OpNodeEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()

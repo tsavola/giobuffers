@@ -56,7 +56,7 @@ func (u *Unmarshaler) Unmarshal(gtx layout.Context, data []byte) (err error) {
 		return
 	}
 
-	u.unmarshalOps(gtx, *buf)
+	u.unmarshalOps(gtx, buf)
 
 	m := u.strings[u.slot&1] // Mask avoids bounds check.
 	for k := range m {
@@ -67,56 +67,55 @@ func (u *Unmarshaler) Unmarshal(gtx layout.Context, data []byte) (err error) {
 	return
 }
 
-func (u *Unmarshaler) unmarshalOps(gtx layout.Context, buf flat.OpNode) {
+func (u *Unmarshaler) unmarshalOps(gtx layout.Context, buf *flat.OpNode) {
 	table := new(flatbuffers.Table)
+	if !buf.Op(table) {
+		return
+	}
 
-	for {
-		if buf.Op(table) {
-			switch buf.OpType() {
-			case flat.OpMacro:
-				var buf flat.OpNode
-				buf.Init(table.Bytes, table.Pos)
-				u.unmarshalMacroOp(gtx, buf)
+	if b := buf.Previous(new(flat.OpNode)); b != nil {
+		u.unmarshalOps(gtx, b)
+	}
 
-			case flat.OpPaintColor:
-				var buf flat.PaintColorOp
-				buf.Init(table.Bytes, table.Pos)
-				paint.ColorOp{
-					Color: unmarshalColorNRGBA(buf.Color(new(flat.ColorNRGBA))),
-				}.Add(gtx.Ops)
+	switch buf.OpType() {
+	case flat.OpMacro:
+		var buf flat.OpNode
+		buf.Init(table.Bytes, table.Pos)
+		u.unmarshalMacroOp(gtx, &buf)
 
-			case flat.OpPaintImage:
-				var buf flat.PaintImageOp
-				buf.Init(table.Bytes, table.Pos)
-				u.unmarshalPaintImageOp(gtx, buf)
+	case flat.OpPaintColor:
+		var buf flat.PaintColorOp
+		buf.Init(table.Bytes, table.Pos)
+		paint.ColorOp{
+			Color: unmarshalColorNRGBA(buf.Color(new(flat.ColorNRGBA))),
+		}.Add(gtx.Ops)
 
-			case flat.OpPaintLinearGradient:
-				var buf flat.PaintLinearGradientOp
-				buf.Init(table.Bytes, table.Pos)
-				paint.LinearGradientOp{
-					Stop1:  unmarshalF32Point(buf.Stop1(new(flat.F32Point))),
-					Color1: unmarshalColorNRGBA(buf.Color1(new(flat.ColorNRGBA))),
-					Stop2:  unmarshalF32Point(buf.Stop2(new(flat.F32Point))),
-					Color2: unmarshalColorNRGBA(buf.Color2(new(flat.ColorNRGBA))),
-				}.Add(gtx.Ops)
+	case flat.OpPaintImage:
+		var buf flat.PaintImageOp
+		buf.Init(table.Bytes, table.Pos)
+		u.unmarshalPaintImageOp(gtx, buf)
 
-			case flat.OpPaint:
-				paint.PaintOp{}.Add(gtx.Ops)
+	case flat.OpPaintLinearGradient:
+		var buf flat.PaintLinearGradientOp
+		buf.Init(table.Bytes, table.Pos)
+		paint.LinearGradientOp{
+			Stop1:  unmarshalF32Point(buf.Stop1(new(flat.F32Point))),
+			Color1: unmarshalColorNRGBA(buf.Color1(new(flat.ColorNRGBA))),
+			Stop2:  unmarshalF32Point(buf.Stop2(new(flat.F32Point))),
+			Color2: unmarshalColorNRGBA(buf.Color2(new(flat.ColorNRGBA))),
+		}.Add(gtx.Ops)
 
-			case flat.OpWidgetLabel:
-				var buf flat.WidgetLabelLayout
-				buf.Init(table.Bytes, table.Pos)
-				u.unmarshalWidgetLabelLayout(gtx, buf)
-			}
-		}
+	case flat.OpPaint:
+		paint.PaintOp{}.Add(gtx.Ops)
 
-		if buf.Next(&buf) == nil {
-			break
-		}
+	case flat.OpWidgetLabel:
+		var buf flat.WidgetLabelLayout
+		buf.Init(table.Bytes, table.Pos)
+		u.unmarshalWidgetLabelLayout(gtx, buf)
 	}
 }
 
-func (u *Unmarshaler) unmarshalMacroOp(gtx layout.Context, buf flat.OpNode) {
+func (u *Unmarshaler) unmarshalMacroOp(gtx layout.Context, buf *flat.OpNode) {
 	pos := buf.Table().Pos
 
 	m := op.Record(gtx.Ops)

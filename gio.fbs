@@ -125,7 +125,7 @@ union Op {
 
 table OpNode {
   op:Op;
-  next:OpNode;
+  previous:OpNode;
 }
 
 root_type OpNode;
