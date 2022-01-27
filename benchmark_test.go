@@ -25,7 +25,7 @@ func BenchmarkUnmarshal(b *testing.B) {
 		ops.Reset()
 		gtx := layout.Context{Ops: &ops}
 
-		if err := u.Unmarshal(gtx, data); err != nil {
+		if _, err := u.Unmarshal(gtx, data); err != nil {
 			b.Fatal(err)
 		}
 	}

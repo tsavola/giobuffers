@@ -9,30 +9,54 @@ type Op byte
 const (
 	OpNONE                Op = 0
 	OpMacro               Op = 1
-	OpPaintColor          Op = 2
-	OpPaintImage          Op = 3
-	OpPaintLinearGradient Op = 4
-	OpPaint               Op = 5
-	OpWidgetLabel         Op = 6
+	OpLayoutDirection     Op = 2
+	OpLayoutFlex          Op = 3
+	OpLayoutInset         Op = 4
+	OpLayoutSpacer        Op = 5
+	OpLayoutStack         Op = 6
+	OpPaintColor          Op = 7
+	OpPaintImage          Op = 8
+	OpPaintLinearGradient Op = 9
+	OpPaint               Op = 10
+	OpWidgetBorder        Op = 11
+	OpWidgetIcon          Op = 12
+	OpWidgetImage         Op = 13
+	OpWidgetLabel         Op = 14
 )
 
 var EnumNamesOp = map[Op]string{
 	OpNONE:                "NONE",
 	OpMacro:               "Macro",
+	OpLayoutDirection:     "LayoutDirection",
+	OpLayoutFlex:          "LayoutFlex",
+	OpLayoutInset:         "LayoutInset",
+	OpLayoutSpacer:        "LayoutSpacer",
+	OpLayoutStack:         "LayoutStack",
 	OpPaintColor:          "PaintColor",
 	OpPaintImage:          "PaintImage",
 	OpPaintLinearGradient: "PaintLinearGradient",
 	OpPaint:               "Paint",
+	OpWidgetBorder:        "WidgetBorder",
+	OpWidgetIcon:          "WidgetIcon",
+	OpWidgetImage:         "WidgetImage",
 	OpWidgetLabel:         "WidgetLabel",
 }
 
 var EnumValuesOp = map[string]Op{
 	"NONE":                OpNONE,
 	"Macro":               OpMacro,
+	"LayoutDirection":     OpLayoutDirection,
+	"LayoutFlex":          OpLayoutFlex,
+	"LayoutInset":         OpLayoutInset,
+	"LayoutSpacer":        OpLayoutSpacer,
+	"LayoutStack":         OpLayoutStack,
 	"PaintColor":          OpPaintColor,
 	"PaintImage":          OpPaintImage,
 	"PaintLinearGradient": OpPaintLinearGradient,
 	"Paint":               OpPaint,
+	"WidgetBorder":        OpWidgetBorder,
+	"WidgetIcon":          OpWidgetIcon,
+	"WidgetImage":         OpWidgetImage,
 	"WidgetLabel":         OpWidgetLabel,
 }
 

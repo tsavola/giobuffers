@@ -39,7 +39,7 @@ func run(w *app.Window, data []byte) error {
 			return e.Err
 		case system.FrameEvent:
 			gtx := layout.NewContext(&ops, e)
-			if err := u.Unmarshal(gtx, data); err != nil {
+			if _, err := u.Unmarshal(gtx, data); err != nil {
 				return err
 			}
 			e.Frame(gtx.Ops)

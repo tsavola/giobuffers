@@ -78,18 +78,123 @@ table TextFont {
   weight:int;
 }
 
-// Package gioui.org/widget
+// Package gioui.org/layout
 
-table WidgetLabel {
-  alignment:TextAlignment;
-  max_lines:int;
+enum LayoutAlignment:uint8 {
+  Start,
+  End,
+  Middle,
+  Baseline,
 }
 
-table WidgetLabelLayout {
-  label:WidgetLabel;
-  font:TextFont;
-  size:UnitValue;
-  text:string;
+enum LayoutAxis:uint8 {
+  Horizontal,
+  Vertical,
+}
+
+enum LayoutDirection:uint8 {
+  NW,
+  N,
+  NE,
+  E,
+  SE,
+  S,
+  SW,
+  W,
+  Center,
+}
+
+enum LayoutSpacing:uint8 {
+  End,
+  Start,
+  Sides,
+  Around,
+  Between,
+  Evenly,
+}
+
+table LayoutDirectionLayout {
+  direction:LayoutDirection;
+  widget:OpNode;
+}
+
+table LayoutFlex {
+  axis:LayoutAxis;
+  spacing:LayoutSpacing;
+  alignment:LayoutAlignment;
+  weight_sum:float32;
+}
+
+table LayoutFlexed {
+  weight:float32;
+  widget:OpNode;
+}
+
+table LayoutRigid {
+  widget:OpNode;
+}
+
+union LayoutFlexChild {
+  Flexed:LayoutFlexed,
+  Rigid:LayoutRigid,
+}
+
+table LayoutFlexChildNode {
+  child:LayoutFlexChild;
+  next:LayoutFlexChildNode;
+}
+
+table LayoutFlexLayout {
+  flex:LayoutFlex;
+  children:LayoutFlexChildNode;
+}
+
+table LayoutInset {
+  top:UnitValue;
+  bottom:UnitValue;
+  left:UnitValue;
+  right:UnitValue;
+}
+
+table LayoutInsetLayout {
+  inset:LayoutInset;
+  widget:OpNode;
+}
+
+table LayoutSpacer {
+  width:UnitValue;
+  height:UnitValue;
+}
+
+table LayoutSpacerLayout {
+  spacer:LayoutSpacer;
+}
+
+table LayoutStack {
+  alignment:LayoutDirection;
+}
+
+table LayoutExpanded {
+  widget:OpNode;
+}
+
+table LayoutStacked {
+  widget:OpNode;
+}
+
+union LayoutStackChild {
+  Expanded:LayoutExpanded,
+  Stacked:LayoutStacked,
+}
+
+table LayoutStackChildNode {
+  child:LayoutStackChild;
+  next:LayoutStackChildNode;
+}
+
+table LayoutStackLayout {
+  stack:LayoutStack;
+  children:LayoutStackChildNode;
 }
 
 // Package gioui.org/op/paint
@@ -99,6 +204,7 @@ table PaintColorOp {
 }
 
 table PaintImageOp {
+  src_id:string;
   src:Image;
 }
 
@@ -112,14 +218,76 @@ table PaintLinearGradientOp {
 table PaintOp {
 }
 
+// Package gioui.org/widget
+
+enum WidgetFit:uint8 {
+  Unscaled,
+  Contain,
+  Cover,
+  ScaleDown,
+  Fill,
+}
+
+table WidgetBorder {
+  color:ColorNRGBA;
+  corner_radius:UnitValue;
+  width:UnitValue;
+}
+
+table WidgetBorderLayout {
+  border:WidgetBorder;
+  widget:OpNode;
+}
+
+table WidgetIcon {
+  data:[ubyte];
+}
+
+table WidgetIconLayout {
+  icon_id:string;
+  icon:WidgetIcon;
+  color:ColorNRGBA;
+}
+
+table WidgetImage {
+  src:PaintImageOp;
+  fit:WidgetFit;
+  position:LayoutDirection;
+  scale:float32;
+}
+
+table WidgetImageLayout {
+  image:WidgetImage;
+}
+
+table WidgetLabel {
+  alignment:TextAlignment;
+  max_lines:int;
+}
+
+table WidgetLabelLayout {
+  label:WidgetLabel;
+  font:TextFont;
+  size:UnitValue;
+  text:string;
+}
+
 // Package gioui.org/op
 
 union Op {
   Macro:OpNode,
+  LayoutDirection:LayoutDirectionLayout,
+  LayoutFlex:LayoutFlexLayout,
+  LayoutInset:LayoutInsetLayout,
+  LayoutSpacer:LayoutSpacerLayout,
+  LayoutStack:LayoutStackLayout,
   PaintColor:PaintColorOp,
   PaintImage:PaintImageOp,
   PaintLinearGradient:PaintLinearGradientOp,
   Paint:PaintOp,
+  WidgetBorder:WidgetBorderLayout,
+  WidgetIcon:WidgetIconLayout,
+  WidgetImage:WidgetImageLayout,
   WidgetLabel:WidgetLabelLayout,
 }
 

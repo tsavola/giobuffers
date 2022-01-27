@@ -24,197 +24,469 @@ import (
 	"import.name/pan"
 )
 
-type Unmarshaler struct {
-	shaper  text.Shaper
-	macros  map[flatbuffers.UOffsetT]op.MacroOp
-	strings [2]map[string]string // Caches strings between two Unmarshal calls.
-	slot    int                  // Current string map for lookup.
+type cachedImage struct {
+	id    string
+	image image.Image
 }
 
-func (u *Unmarshaler) Unmarshal(gtx layout.Context, data []byte) (err error) {
+type cachedIcon struct {
+	id   string
+	icon *widget.Icon
+}
+
+type cache struct {
+	strings map[string]string
+	images  map[string]cachedImage
+	icons   map[string]cachedIcon
+}
+
+func makeCache() cache {
+	return cache{
+		strings: make(map[string]string),
+		images:  make(map[string]cachedImage),
+		icons:   make(map[string]cachedIcon),
+	}
+}
+
+func (c *cache) clear() {
+	for k := range c.strings {
+		delete(c.strings, k)
+	}
+	for k := range c.images {
+		delete(c.images, k)
+	}
+	for k := range c.icons {
+		delete(c.icons, k)
+	}
+}
+
+type Unmarshaler struct {
+	shaper text.Shaper
+	macros map[flatbuffers.UOffsetT]op.MacroOp
+	older  cache // From previous iteration.
+	newer  cache // For current/next iteration.
+}
+
+func (u *Unmarshaler) Unmarshal(gtx layout.Context, buf []byte) (d layout.Dimensions, err error) {
 	if u.shaper == nil {
 		u.shaper = text.NewCache(gofont.Collection())
 		u.macros = make(map[flatbuffers.UOffsetT]op.MacroOp)
-		u.strings = [2]map[string]string{
-			make(map[string]string),
-			make(map[string]string),
-		}
+		u.older = makeCache()
+		u.newer = makeCache()
 	}
 
 	defer func() {
 		for k := range u.macros {
 			delete(u.macros, k)
 		}
+
+		u.older, u.newer = u.newer, u.older
+		u.newer.clear()
 	}()
 
 	defer func() {
 		err = pan.Error(recover())
 	}()
 
-	buf := flat.GetRootAsOpNode(data, 0)
-	if buf == nil {
-		return
+	if b := flat.GetRootAsOpNode(buf, 0); b != nil {
+		d = u.ops(gtx, *b)
 	}
+	return
+}
 
-	u.unmarshalOps(gtx, buf)
+func (u *Unmarshaler) ops(gtx layout.Context, buf flat.OpNode) (d layout.Dimensions) {
+	if table := new(flatbuffers.Table); buf.Op(table) {
+		if b := buf.Previous(nil); b != nil {
+			d = u.ops(gtx, *b)
+		}
 
-	m := u.strings[u.slot&1] // Mask avoids bounds check.
-	for k := range m {
-		delete(m, k)
+		switch buf.OpType() {
+		case flat.OpMacro:
+			var b flat.OpNode
+			b.Init(table.Bytes, table.Pos)
+
+			u.macroOp(gtx, b)
+
+		case flat.OpLayoutDirection:
+			var b flat.LayoutDirectionLayout
+			b.Init(table.Bytes, table.Pos)
+
+			d = layout.Direction(b.Direction()).Layout(gtx, u.layoutWidget(b.Widget(nil)))
+
+		case flat.OpLayoutFlex:
+			var b flat.LayoutFlexLayout
+			b.Init(table.Bytes, table.Pos)
+
+			d = u.layoutFlexLayout(gtx, b)
+
+		case flat.OpLayoutInset:
+			var b flat.LayoutInsetLayout
+			b.Init(table.Bytes, table.Pos)
+
+			d = u.layoutInsetLayout(gtx, b)
+
+		case flat.OpLayoutSpacer:
+			var b flat.LayoutSpacerLayout
+			b.Init(table.Bytes, table.Pos)
+
+			d = u.layoutSpacerLayout(gtx, b)
+
+		case flat.OpLayoutStack:
+			var b flat.LayoutStackLayout
+			b.Init(table.Bytes, table.Pos)
+
+			d = u.layoutStackLayout(gtx, b)
+
+		case flat.OpPaintColor:
+			var b flat.PaintColorOp
+			b.Init(table.Bytes, table.Pos)
+
+			paint.ColorOp{
+				Color: colorNRGBA(b.Color(nil)),
+			}.Add(gtx.Ops)
+
+		case flat.OpPaintImage:
+			var b flat.PaintImageOp
+			b.Init(table.Bytes, table.Pos)
+
+			if op, ok := u.paintImageOp(gtx, b); ok {
+				op.Add(gtx.Ops)
+			} else {
+				paint.ColorOp{}.Add(gtx.Ops) // Transparent.
+			}
+
+		case flat.OpPaintLinearGradient:
+			var b flat.PaintLinearGradientOp
+			b.Init(table.Bytes, table.Pos)
+
+			paint.LinearGradientOp{
+				Stop1:  f32Point(b.Stop1(nil)),
+				Color1: colorNRGBA(b.Color1(nil)),
+				Stop2:  f32Point(b.Stop2(nil)),
+				Color2: colorNRGBA(b.Color2(nil)),
+			}.Add(gtx.Ops)
+
+		case flat.OpPaint:
+			var b flat.PaintOp
+			b.Init(table.Bytes, table.Pos)
+
+			paint.PaintOp{}.Add(gtx.Ops)
+
+		case flat.OpWidgetBorder:
+			var b flat.WidgetBorderLayout
+			b.Init(table.Bytes, table.Pos)
+
+			d = u.widgetBorderLayout(gtx, b)
+
+		case flat.OpWidgetIcon:
+			var b flat.WidgetIconLayout
+			b.Init(table.Bytes, table.Pos)
+
+			d = u.widgetIconLayout(gtx, b)
+
+		case flat.OpWidgetImage:
+			var b flat.WidgetImageLayout
+			b.Init(table.Bytes, table.Pos)
+
+			d = u.widgetImageLayout(gtx, b)
+
+		case flat.OpWidgetLabel:
+			var b flat.WidgetLabelLayout
+			b.Init(table.Bytes, table.Pos)
+
+			d = u.widgetLabelLayout(gtx, b)
+		}
 	}
-	u.slot = (u.slot + 1) & 1
 
 	return
 }
 
-func (u *Unmarshaler) unmarshalOps(gtx layout.Context, buf *flat.OpNode) {
-	table := new(flatbuffers.Table)
-	if !buf.Op(table) {
-		return
-	}
-
-	if b := buf.Previous(new(flat.OpNode)); b != nil {
-		u.unmarshalOps(gtx, b)
-	}
-
-	switch buf.OpType() {
-	case flat.OpMacro:
-		var buf flat.OpNode
-		buf.Init(table.Bytes, table.Pos)
-		u.unmarshalMacroOp(gtx, &buf)
-
-	case flat.OpPaintColor:
-		var buf flat.PaintColorOp
-		buf.Init(table.Bytes, table.Pos)
-		paint.ColorOp{
-			Color: unmarshalColorNRGBA(buf.Color(new(flat.ColorNRGBA))),
-		}.Add(gtx.Ops)
-
-	case flat.OpPaintImage:
-		var buf flat.PaintImageOp
-		buf.Init(table.Bytes, table.Pos)
-		u.unmarshalPaintImageOp(gtx, buf)
-
-	case flat.OpPaintLinearGradient:
-		var buf flat.PaintLinearGradientOp
-		buf.Init(table.Bytes, table.Pos)
-		paint.LinearGradientOp{
-			Stop1:  unmarshalF32Point(buf.Stop1(new(flat.F32Point))),
-			Color1: unmarshalColorNRGBA(buf.Color1(new(flat.ColorNRGBA))),
-			Stop2:  unmarshalF32Point(buf.Stop2(new(flat.F32Point))),
-			Color2: unmarshalColorNRGBA(buf.Color2(new(flat.ColorNRGBA))),
-		}.Add(gtx.Ops)
-
-	case flat.OpPaint:
-		paint.PaintOp{}.Add(gtx.Ops)
-
-	case flat.OpWidgetLabel:
-		var buf flat.WidgetLabelLayout
-		buf.Init(table.Bytes, table.Pos)
-		u.unmarshalWidgetLabelLayout(gtx, buf)
-	}
-}
-
-func (u *Unmarshaler) unmarshalMacroOp(gtx layout.Context, buf *flat.OpNode) {
+func (u *Unmarshaler) macroOp(gtx layout.Context, buf flat.OpNode) {
 	pos := buf.Table().Pos
 
 	m := op.Record(gtx.Ops)
-	u.unmarshalOps(gtx, buf)
+	u.ops(gtx, buf)
 	m.Stop()
 
 	u.macros[pos] = m
 }
 
-func (u *Unmarshaler) unmarshalPaintImageOp(gtx layout.Context, buf flat.PaintImageOp) {
-	table := new(flatbuffers.Table)
+func (u *Unmarshaler) layoutFlexLayout(gtx layout.Context, buf flat.LayoutFlexLayout) layout.Dimensions {
+	var flex layout.Flex
+	if b := buf.Flex(nil); b != nil {
+		flex.Axis = layout.Axis(b.Axis())
+		flex.Spacing = layout.Spacing(b.Spacing())
+		flex.Alignment = layout.Alignment(b.Alignment())
+		flex.WeightSum = b.WeightSum()
+	}
 
-	if buf.Src(table) {
+	var children []layout.FlexChild
+	for b := buf.Children(nil); b != nil; b = b.Next(b) {
+		children = append(children, u.layoutFlexChild(gtx, *b))
+	}
+
+	return flex.Layout(gtx, children...)
+}
+
+func (u *Unmarshaler) layoutFlexChild(gtx layout.Context, buf flat.LayoutFlexChildNode) layout.FlexChild {
+	if table := new(flatbuffers.Table); buf.Child(table) {
+		switch buf.ChildType() {
+		case flat.LayoutFlexChildFlexed:
+			var buf flat.LayoutFlexed
+			buf.Init(table.Bytes, table.Pos)
+
+			return layout.Flexed(buf.Weight(), u.layoutWidget(buf.Widget(nil)))
+
+		case flat.LayoutFlexChildRigid:
+			var buf flat.LayoutRigid
+			buf.Init(table.Bytes, table.Pos)
+
+			return layout.Rigid(u.layoutWidget(buf.Widget(nil)))
+		}
+	}
+
+	return layout.Rigid(u.layoutWidget(nil))
+}
+
+func (u *Unmarshaler) layoutInsetLayout(gtx layout.Context, buf flat.LayoutInsetLayout) layout.Dimensions {
+	var inset layout.Inset
+	if b := buf.Inset(nil); b != nil {
+		inset.Top = unitValue(b.Top(nil))
+		inset.Bottom = unitValue(b.Bottom(nil))
+		inset.Left = unitValue(b.Left(nil))
+		inset.Right = unitValue(b.Right(nil))
+	}
+
+	return inset.Layout(gtx, u.layoutWidget(buf.Widget(nil)))
+}
+
+func (u *Unmarshaler) layoutSpacerLayout(gtx layout.Context, buf flat.LayoutSpacerLayout) layout.Dimensions {
+	var spacer layout.Spacer
+	if b := buf.Spacer(nil); b != nil {
+		spacer.Width = unitValue(b.Width(nil))
+		spacer.Height = unitValue(b.Height(nil))
+	}
+
+	return spacer.Layout(gtx)
+}
+
+func (u *Unmarshaler) layoutStackLayout(gtx layout.Context, buf flat.LayoutStackLayout) layout.Dimensions {
+	var stack layout.Stack
+	if b := buf.Stack(nil); b != nil {
+		stack.Alignment = layout.Direction(b.Alignment())
+	}
+
+	var children []layout.StackChild
+	for b := buf.Children(nil); b != nil; b = b.Next(b) {
+		children = append(children, u.layoutStackChild(gtx, *b))
+	}
+
+	return stack.Layout(gtx, children...)
+}
+
+func (u *Unmarshaler) layoutStackChild(gtx layout.Context, buf flat.LayoutStackChildNode) layout.StackChild {
+	if table := new(flatbuffers.Table); buf.Child(table) {
+		switch buf.ChildType() {
+		case flat.LayoutStackChildExpanded:
+			var buf flat.LayoutExpanded
+			buf.Init(table.Bytes, table.Pos)
+
+			return layout.Expanded(u.layoutWidget(buf.Widget(nil)))
+
+		case flat.LayoutStackChildStacked:
+			var buf flat.LayoutStacked
+			buf.Init(table.Bytes, table.Pos)
+
+			return layout.Stacked(u.layoutWidget(buf.Widget(nil)))
+		}
+	}
+
+	return layout.Stacked(u.layoutWidget(nil))
+}
+
+func (u *Unmarshaler) layoutWidget(buf *flat.OpNode) layout.Widget {
+	return func(gtx layout.Context) (d layout.Dimensions) {
+		if buf != nil {
+			d = u.ops(gtx, *buf)
+		}
+		return
+	}
+}
+
+func (u *Unmarshaler) paintImageOp(gtx layout.Context, buf flat.PaintImageOp) (paint.ImageOp, bool) {
+	c, existed := u.newer.images[string(buf.SrcId())]
+	if !existed {
+		c, existed = u.older.images[string(buf.SrcId())]
+	}
+
+	if table := new(flatbuffers.Table); buf.Src(table) {
 		switch buf.SrcType() {
 		case flat.ImageImageDecode:
 			var buf flat.ImageDecode
 			buf.Init(table.Bytes, table.Pos)
 			img, _, err := image.Decode(bytes.NewReader(buf.DataBytes()))
 			check(err)
-			paint.NewImageOp(img).Add(gtx.Ops)
+			c.image = img
 
 		case flat.ImageImageNRGBA:
 			var buf flat.ImageNRGBA
 			buf.Init(table.Bytes, table.Pos)
-			paint.NewImageOp(&image.NRGBA{
-				Pix:    buf.PixBytes(),
+			c.image = &image.NRGBA{
+				Pix:    append([]byte{}, buf.PixBytes()...),
 				Stride: int(buf.Stride()),
-				Rect:   unmarshalImageRectangle(buf.Rect(new(flat.ImageRectangle))),
-			}).Add(gtx.Ops)
+				Rect:   imageRectangle(buf.Rect(nil)),
+			}
 		}
 	}
+
+	if c.image == nil {
+		return paint.ImageOp{}, false
+	}
+
+	if !existed {
+		c.id = string(buf.SrcId())
+	}
+	u.newer.images[c.id] = c
+
+	return paint.NewImageOp(c.image), true
 }
 
-func (u *Unmarshaler) unmarshalWidgetLabelLayout(gtx layout.Context, buf flat.WidgetLabelLayout) {
+func (u *Unmarshaler) widgetBorderLayout(gtx layout.Context, buf flat.WidgetBorderLayout) layout.Dimensions {
+	var border widget.Border
+	if b := buf.Border(nil); b != nil {
+		border.Color = colorNRGBA(b.Color(nil))
+		border.CornerRadius = unitValue(b.CornerRadius(nil))
+		border.Width = unitValue(b.Width(nil))
+	}
+
+	return border.Layout(gtx, u.layoutWidget(buf.Widget(nil)))
+}
+
+func (u *Unmarshaler) widgetIconLayout(gtx layout.Context, buf flat.WidgetIconLayout) (_ layout.Dimensions) {
+	c, existed := u.newer.icons[string(buf.IconId())]
+	if !existed {
+		c, existed = u.older.icons[string(buf.IconId())]
+	}
+
+	if b := buf.Icon(nil); b != nil {
+		icon, err := widget.NewIcon(b.DataBytes())
+		check(err)
+		c.icon = icon
+	}
+
+	if c.icon == nil {
+		return
+	}
+
+	if !existed {
+		c.id = string(buf.IconId())
+	}
+	u.newer.icons[c.id] = c
+
+	return c.icon.Layout(gtx, colorNRGBA(buf.Color(nil)))
+}
+
+func (u *Unmarshaler) widgetImageLayout(gtx layout.Context, buf flat.WidgetImageLayout) (_ layout.Dimensions) {
+	imageBuf := buf.Image(nil)
+	if imageBuf == nil {
+		return
+	}
+
+	srcBuf := imageBuf.Src(nil)
+	if srcBuf == nil {
+		return
+	}
+
+	src, ok := u.paintImageOp(gtx, *srcBuf)
+	if !ok {
+		return
+	}
+
+	return widget.Image{
+		Src:      src,
+		Fit:      widget.Fit(imageBuf.Fit()),
+		Position: layout.Direction(imageBuf.Position()),
+		Scale:    imageBuf.Scale(),
+	}.Layout(gtx)
+}
+
+func (u *Unmarshaler) widgetLabelLayout(gtx layout.Context, buf flat.WidgetLabelLayout) layout.Dimensions {
 	var label widget.Label
-	if b := buf.Label(new(flat.WidgetLabel)); b != nil {
+	if b := buf.Label(nil); b != nil {
 		label.Alignment = text.Alignment(b.Alignment())
 		label.MaxLines = int(b.MaxLines())
 	}
 
 	var font text.Font
-	if b := buf.Font(new(flat.TextFont)); b != nil {
-		font.Typeface = text.Typeface(u.unmarshalString(b.Typeface()))
-		font.Variant = text.Variant(u.unmarshalString(b.Variant()))
+	if b := buf.Font(nil); b != nil {
+		font.Typeface = text.Typeface(u.string(b.Typeface()))
+		font.Variant = text.Variant(u.string(b.Variant()))
 		font.Style = text.Style(b.Style())
 		font.Weight = text.Weight(b.Weight())
 	}
 
 	var size unit.Value
-	if b := buf.Size(new(flat.UnitValue)); b != nil {
+	if b := buf.Size(nil); b != nil {
 		size.V = b.V()
 		size.U = unit.Unit(b.U())
 	}
 
-	label.Layout(gtx, u.shaper, font, size, u.unmarshalString(buf.Text()))
+	return label.Layout(gtx, u.shaper, font, size, u.string(buf.Text()))
 }
 
-func (u *Unmarshaler) unmarshalString(buf []byte) (s string) {
-	// Repeat string(buf) so that the map lookup gets optimized.  The redundant
-	// index mask avoids bounds check.
-	if existing, found := u.strings[u.slot&1][string(buf)]; found {
-		s = existing
-	} else {
+func (u *Unmarshaler) string(buf []byte) string {
+	// Repeat string(buf) so that the map lookup gets optimized.
+
+	if s, found := u.newer.strings[string(buf)]; found {
+		return s
+	}
+
+	s, found := u.older.strings[string(buf)]
+	if !found {
 		s = string(buf)
 	}
-	u.strings[(u.slot+1)&1][s] = s // Cache it for next round.
-	return
+	u.newer.strings[s] = s // Cache it for next round.
+	return s
 }
 
-func unmarshalColorNRGBA(buf *flat.ColorNRGBA) (r color.NRGBA) {
-	if buf != nil {
-		r.R = buf.R()
-		r.G = buf.G()
-		r.B = buf.B()
-		r.A = buf.A()
+func colorNRGBA(b *flat.ColorNRGBA) (c color.NRGBA) {
+	if b != nil {
+		c.R = b.R()
+		c.G = b.G()
+		c.B = b.B()
+		c.A = b.A()
 	}
 	return
 }
 
-func unmarshalF32Point(buf *flat.F32Point) (r f32.Point) {
-	if buf != nil {
-		r.X = buf.X()
-		r.Y = buf.Y()
+func f32Point(b *flat.F32Point) (p f32.Point) {
+	if b != nil {
+		p.X = b.X()
+		p.Y = b.Y()
 	}
 	return
 }
 
-func unmarshalImagePoint(buf *flat.ImagePoint) (r image.Point) {
-	if buf != nil {
-		r.X = int(buf.X())
-		r.Y = int(buf.Y())
+func imagePoint(b *flat.ImagePoint) (p image.Point) {
+	if b != nil {
+		p.X = int(b.X())
+		p.Y = int(b.Y())
 	}
 	return
 }
 
-func unmarshalImageRectangle(buf *flat.ImageRectangle) (r image.Rectangle) {
-	if buf != nil {
-		r.Min = unmarshalImagePoint(buf.Min(new(flat.ImagePoint)))
-		r.Max = unmarshalImagePoint(buf.Max(new(flat.ImagePoint)))
+func imageRectangle(b *flat.ImageRectangle) (r image.Rectangle) {
+	if b != nil {
+		r.Min = imagePoint(b.Min(nil))
+		r.Max = imagePoint(b.Max(nil))
+	}
+	return
+}
+
+func unitValue(b *flat.UnitValue) (r unit.Value) {
+	if b != nil {
+		r.V = b.V()
+		r.U = unit.Unit(b.U())
 	}
 	return
 }
