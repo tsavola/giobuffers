@@ -16,9 +16,7 @@ func (c *cache) set(id string) {
 }
 
 func (c *cache) clear() {
-	for id := range c.synced {
-		delete(c.synced, id)
-	}
+	clear(c.synced)
 }
 
 type Context struct {

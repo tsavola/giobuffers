@@ -49,15 +49,9 @@ func makeCache() cache {
 }
 
 func (c *cache) clear() {
-	for k := range c.strings {
-		delete(c.strings, k)
-	}
-	for k := range c.images {
-		delete(c.images, k)
-	}
-	for k := range c.icons {
-		delete(c.icons, k)
-	}
+	clear(c.strings)
+	clear(c.images)
+	clear(c.icons)
 }
 
 type Unmarshaler struct {
@@ -76,9 +70,7 @@ func (u *Unmarshaler) Unmarshal(gtx layout.Context, buf []byte) (d layout.Dimens
 	}
 
 	defer func() {
-		for k := range u.macros {
-			delete(u.macros, k)
-		}
+		clear(u.macros)
 
 		u.older, u.newer = u.newer, u.older
 		u.newer.clear()

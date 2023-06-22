@@ -1,6 +1,6 @@
 module github.com/tsavola/giobuffers
 
-go 1.20
+go 1.21
 
 require (
 	gioui.org v0.0.0-20220119093932-c0f3ec88e978
