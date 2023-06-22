@@ -38,7 +38,7 @@ const (
 	ExtraLight Weight = 200 - 400
 	UltraLight Weight = ExtraLight
 	Light      Weight = 300 - 400
-	Normal     Weight = 400 - 400
+	Normal     Weight = 0
 	Medium     Weight = 500 - 400
 	SemiBold   Weight = 600 - 400
 	DemiBold   Weight = SemiBold
